@@ -37,7 +37,7 @@ class SlowMotionMod extends PolyMod {
         this.enabled = true; // used until the setting is registered
         installTimeWarp(() => {
             try {
-                const v = window.polyModLoader.getSetting("Slow motion");
+                const v = window.polyModLoader.getSetting("SlowMotion");
                 if (v === "false" || v === false) return 1;
             } catch (e) { /* setting not registered yet: stay enabled */ }
             return SPEED;
@@ -46,7 +46,7 @@ class SlowMotionMod extends PolyMod {
     init = (pml) => {
         this.pml = pml;
         pml.registerSettingCategory("Slow Motion");
-        pml.registerSetting("Slow motion", "Slow motion", SettingType.BOOL, true);
+        pml.registerSetting("SlowMotion", "SlowMotion", SettingType.BOOL, true);
     }
 }
 
