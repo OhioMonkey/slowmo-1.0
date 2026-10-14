@@ -1,10 +1,9 @@
-import { PolyMod, SettingType } from "https://cdn.polymodloader.com/cb/polytrackmods/PolyModLoader/0.6.0/PolyTypes.js";
+import { PolyMod, MixinType, SettingType } from "https://cdn.polymodloader.com/cb/polytrackmods/PolyModLoader/0.6.0/PolyTypes.js";
 
 // 0.5 = half speed. Try 0.25 for quarter speed. Must be > 0.
 const SPEED = 0.5;
 
-// Slows the clock the page sees. The game loop reads time from
-// performance.now / requestAnimationFrame, so scaling those slows everything.
+// 1) Main page: slow the clock the page sees (animations, camera, UI).
 function installTimeWarp(getScale) {
     if (window.__slowmoInstalled) return;
     window.__slowmoInstalled = true;
@@ -32,21 +31,50 @@ function installTimeWarp(getScale) {
     window.requestAnimationFrame = (cb) => realRAF(() => cb(now()));
 }
 
+// 2) Simulation worker: the car physics run in a separate worker with its own
+// clock (it steps the car by real elapsed time), so it needs the same slowdown.
+// This code is injected at the very top of the worker's source.
+const workerPrelude = (speed) => `
+(function () {
+    // The worker is loaded from a blob, so make relative importScripts work.
+    const base = self.location.origin + "/";
+    const realImport = self.importScripts.bind(self);
+    self.importScripts = (...u) => realImport(...u.map(
+        (x) => /^(blob:|https?:|data:)/.test(x) ? x : new URL(x, base).href));
+    const real = performance.now.bind(performance);
+    let last = real(), virt = last;
+    performance.now = () => {
+        const r = real();
+        virt += (r - last) * ${speed};
+        last = r;
+        return virt;
+    };
+})();
+`;
+
+function isEnabled() {
+    try {
+        const v = window.polyModLoader.getSetting("SlowMotion");
+        return !(v === "false" || v === false);
+    } catch (e) { return true; } // setting not registered yet: stay enabled
+}
+
 class SlowMotionMod extends PolyMod {
     preInit = (pml) => {
-        this.enabled = true; // used until the setting is registered
-        installTimeWarp(() => {
-            try {
-                const v = window.polyModLoader.getSetting("SlowMotion");
-                if (v === "false" || v === false) return 1;
-            } catch (e) { /* setting not registered yet: stay enabled */ }
-            return SPEED;
-        });
+        installTimeWarp(() => (isEnabled() ? SPEED : 1));
     }
     init = (pml) => {
         this.pml = pml;
         pml.registerSettingCategory("Slow Motion");
         pml.registerSetting("SlowMotion", "SlowMotion", SettingType.BOOL, true);
+        // Takes effect after the next page reload.
+        if (isEnabled()) {
+            pml.registerSimWorkerMixin({
+                type: MixinType.INSERT,
+                token: "(() => {",
+                func: workerPrelude(SPEED),
+            });
+        }
     }
 }
 
