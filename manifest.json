@@ -1,0 +1,10 @@
+{
+    "name": "Slow Motion",
+    "id": "slowmo",
+    "author": "Matthias",
+    "latest": {
+        "0.6.0": "0.1.0",
+        "0.6.1": "0.1.0",
+        "0.6.2": "0.1.0"
+    }
+}
